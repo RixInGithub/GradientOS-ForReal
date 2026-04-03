@@ -1,0 +1,85 @@
+i have no idea what any of this bullshit means!!!
+
+---> tls msg structs!
+typedef struct {
+    uint8_t msg_type;            // 1
+    uint8_t client_pubkey[65]; // p256
+    uint8_t client_nonce[32];    // random
+} ClientHello; // len=98
+
+typedef struct {
+    uint8_t msg_type;            // 2
+    uint8_t server_pubkey[65];
+    uint8_t server_nonce[32];
+} ServerHello;
+
+typedef struct {
+    uint8_t nonce[12];           // per-message
+    uint16_t length;
+    uint8_t ciphAndTag[]; // idfk
+} EncryptedMessage;
+---> client keygen!
+cKey = await crypto.subtle.generateKey(
+	{name: "ECDH", namedCurve: "P-256"},
+	true,
+	["deriveBits"]
+)
+
+pubK = await crypto.subtle.exportKey("raw", cKey.publicKey)
+
+nonce1 = crypto.getRandomValues(new Uint8Array(32))
+---> derive shared secret!
+serverPub = await crypto.subtle.importKey(
+  "raw",
+  bytes,
+  {name: "ECDH", namedCurve: "P-256"},
+  false,
+  []
+)
+
+secret = await crypto.subtle.deriveBits(
+  {name: "ECDH", public: serverPub},
+  cKey.privateKey,
+  256
+)
+---> algorithm shyt!
+hkdfKey = await crypto.subtle.importKey(
+  "raw",
+  secret,
+  "HKDF",
+  false,
+  ["deriveKey"]
+);
+
+aesKey = await crypto.subtle.deriveKey(
+  {
+    name: "HKDF",
+    hash: "SHA-256",
+    salt: concat(clientNonce, serverNonce),
+    info: new TextEncoder().encode("GradientTLS")
+  },
+  hkdfKey,
+  { name: "AES-GCM", length: 256 },
+  false,
+  ["encrypt", "decrypt"]
+);
+---> encrypt!
+const nonce = crypto.getRandomValues(new Uint8Array(12));
+
+const ciphertext = await crypto.subtle.encrypt(
+  { name: "AES-GCM", iv: nonce },
+  sessionKey,
+  plaintextBytes
+);
+
+const encrypted = new Uint8Array(ciphertext);
+---> decrypt!
+const plaintext = await crypto.subtle.decrypt(
+  { name: "AES-GCM", iv: nonce },
+  sessionKey,
+  ciphertextBytes
+);
+---> handshake #1!
+typedef struct {
+	uint16_t type; // 0x16
+} TRP1;
