@@ -1,3 +1,3 @@
-[submodule "wasm/mbedtls"]
-	path = wasm/mbedtls
+[submodule "mbedtls"]
+	path = mbedtls
 	url = https://github.com/RixInGithub/mbedtls.git
