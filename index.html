@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<title>GradientOS</title>
+		<link href="/v2.css" rel="stylesheet">
+	</head>
+	<body>
+		<script>
+			(navigator.userAgent=="Screenjesus") ? (location.pathname = "/thumb/") :
+			(async function(GradientWisp,en,de,memSiz,frame,handles=[],promises={}/*,cryptoHandles=[],cryptoPromises={}*/,utils,ctx,sizeof={},perfOff,disowned=[],buildTxt,fullTxt,cKeys){
+				var{default:GradientWisp}=await import("/gradientwisp.js")
+				cnv=document.querySelector("canvas")
+				en=(function(a){return(a).encode.bind(a)})(new TextEncoder())
+				de=(function(a){return(a).decode.bind(a)})(new TextDecoder())
+				requestAnimationFrame(function mainLoopCaller(...a) {
+					if (ctx) { // til context shit gets reset every resize
+						ctx.h=handles
+						ctx.cnv=cnv
+						ctx.font = "10px \"Liberation Sans\""
+						ctx.textBaseline = "top" // why dont this default to top vro
+					}
+					
+					(frame||function(){})(...a)
+					requestAnimationFrame(mainLoopCaller)
+				})
+				cKeys = await crypto.subtle.generateKey(
+					{name: "ECDH", namedCurve: "P-256"},
+					true,
+					["deriveBits"]
+				)
+				utils={
+					ptr2str(ptr,len) {
+						var buf = new Uint8Array(env.memory.buffer, ptr)
+						buf=buf.slice(0,len??(buf.indexOf(0)))
+						return(de(buf))
+					},
+					buf2ptr(buf,nullTerm=false) {
+						if (Object.prototype.toString.call(buf)=="[object ArrayBuffer]") buf = new Uint8Array(buf)
+						var ptr = instance.exports.calloc(sizeof.char, buf.length+nullTerm)
+						new Uint8Array(env.memory.buffer).set(buf,ptr)
+						return ptr
+					},
+					str2ptr(str) {
+						return utils.buf2ptr(en(str),true)
+					},
+					callCurry(pref,args) {
+						return function(funPtr,needsHandle) {
+							var res, evalCode
+							args.h = function(){return(handles)}
+							// console.log(args)
+							try {
+								evalCode = `return ${pref}${utils.ptr2str(funPtr)}`
+								res=Function(Object.keys(args)+"", evalCode)(...Object.values(args).map(function(a){return((typeof(a)=="function")?a:function(){return(a)})()}))
+							} catch (e) {
+								console.error(evalCode, args, e)
+								new Uint16Array(env.memory.buffer).set(instance.exports.crashCode,0xa000)
+								return -2
+							}
+							if (needsHandle) {
+								var idx
+								if (disowned.length>0) { // smort allocation
+									idx = disowned.shift()
+									handles[idx] = res
+								}
+								if (typeof idx != "number") {
+									idx = handles.length
+									handles.push(res)
+								}
+								if (Object(res).constructor==Promise) { // condition straight outta stackoverflow DOT COM!!!
+									var uniqueness = Symbol()
+									promises[idx] = {done:false,uniqueness}
+									res.then(function(a){
+										if (!(promises[idx])) return
+										if (promises[idx].uniqueness!=uniqueness) return
+										handles[idx] = a
+										promises[idx].done = true
+										promises[idx].resp = a
+									})
+								}
+								return idx
+							}
+							return -1
+						}
+					},
+					call2StrCurry(f) {
+						return function(funPtr) {
+							var h = f(funPtr,true)
+							var str = handles[h]+""
+							env.disownHandle(h)
+							return utils.str2ptr(str)
+						}
+					}
+				}
+				env = {
+					__indirect_function_table:new WebAssembly.Table({initial:3,element:"anyfunc"}),__stack_pointer:new WebAssembly.Global({value:"i32",mutable:1},0),memory:new WebAssembly.Memory({initial:376,maximum:376}),
+					setMainLoop(funcPtr) {
+						frame = env.__indirect_function_table.get(funcPtr)
+					},
+					setSizeof(tPtr,len) {
+						sizeof[utils.ptr2str(tPtr)]=len
+					},
+					alert(mPtr){alert(utils.ptr2str(mPtr))},
+					initCtx(mPtr) {
+						ctx = cnv.getContext(utils.ptr2str(mPtr))
+						if (!(ctx)) return false
+						return true
+					},
+					callCtxFun: utils.callCurry("ctx.",{ctx(){return ctx},cnv(){return cnv}}), // values of |ctx| and |cnv| may vary between runs of |callCtxFun|.
+					disownAllH(){disowned.length=handles.length=0},
+					disownHandle(h){
+						delete handles[h] // make this h become undefined plz
+						if (promises[h]) {
+							promises[h].uniqueness = "not a symbol so therefore no if conditions match"
+							delete promises[h]
+						}
+						disowned.push(h)
+					},
+					// REMEMBER: uint32s get turned into int32s i suppose? idk why
+					netOpen(hPtr, p) { // hPtr = host pointer.
+						var h=utils.ptr2str(hPtr)
+						return GradientWisp.connect(h,p)|0 // simple way of converting uint32 to int32 ;)
+					},
+					netSend(h, mPtr) { // h = handle. don't mix this up!!! :))))
+						h >>>= 0
+						if (!(GradientWisp.isIdxOpen(h>>>0))) return false
+						if (mPtr==0) return true
+						var buf = new Uint8Array(env.memory.buffer, mPtr)
+						buf=buf.slice(0,buf.indexOf(0))
+						if (buf.length!=0) GradientWisp.send2Idx(h, buf)
+						return true
+					},
+					netRecv(h) {
+						var m = new Uint8Array(GradientWisp.recv(h>>>0))
+						if (m.length==0) return 0 // return NULL
+						return utils.buf2ptr(m)
+					},
+					netClose(h) {
+						GradientWisp.close(h>>>0)
+					},
+					sendTime(...ptrs) {
+						var gradImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEABAMAAACuXLVVAAAAMFBMVEX///8AAADf39+AgID//wDo/wzR/xe5/yOi/y+L/zp0/0Zd/1FG/10u/2kX/3QA/4D38FfwAAAA40lEQVR4nO3OQQGCUAAFQSpQwQpUsIIVrGAFKljBClawghWsgBdunB//HWYL7EzToOa9UX8AAAAAAACAI+ByUsseAAAAAAAAQC/gGg4AAAAAAACgH3ALBwAAAAAAANAPuIcDAAAAAAAA6Ac8wgEAAAAAAAD0A9ZwAAAAAAAAAP2AZzgAAAAAAACAfsArHAAAAAAAAEA/4B0OAAAAAAAAoB/wCQcAAAAAAADQD/iGAwAAAAAAAOgH/MIBAAAAAAAA9AO2cAAAAAAAAAC9gOXkAAAAAAAAAHoA8+AAAAAAAAAAhgP+Z4jP76zTJqkAAAAASUVORK5CYII="
+						buildTxt = `WASM built in ${Reflect.construct(Date,[ptrs.map(function(a){return(utils).ptr2str(a)}).join(" ")]).toUTCString()}`
+						console.log(
+							`%c  %c %cGradientOS\n%c\n${buildTxt}`,
+							`font-size:64px;image-rendering:pixelated;background-image:url(\"${gradImg}\");background-size:cover;`,
+							"font-size:64px;",
+							"font-weight:1000;font-size:64px;background-clip:text;color:Transparent;background-image:linear-gradient(to bottom,#ffff00,#00ff80);-webkit-text-stroke:0.1px\x20Black;",
+							""
+						)
+					},
+					debug(s1Ptr, s2Ptr, s3Ptr) {
+						console.trace(`${utils.ptr2str(s1Ptr)} @ ${utils.ptr2str(s2Ptr)}: %c${JSON.stringify(utils.ptr2str(s3Ptr)).replaceAll("\\u00","\\x")}`, "color:#f0f;")
+					},
+					perfTime: function(){
+						var now = performance.now()
+						if (typeof perfOff != "number") perfOff = now
+						return now-perfOff
+					},
+					handles() {return(handles).length},
+					cnvProp(idx) {
+						return[ctx.canvas.width,ctx.canvas.height][idx]
+					},
+					renderMiscTxt(treePtr) {
+						if (!(Array.isArray(fullTxt))) fullTxt = [utils.ptr2str(treePtr),buildTxt+" (please note, GradientOS v2 is a WIP!!)"]
+						var sz = 12
+						var pad = 8 // nod to the classic |margin: 8px;| body does
+						ctx.font = sz+"px \"Liberation Sans\""
+						ctx.fillStyle = "#fff"
+						fullTxt.forEach(function(l,idx){ctx.fillText(l,cnv.width-ctx.measureText(l).width-pad,cnv.height-(fullTxt.length-idx)*sz-pad)})
+					},
+					callSubtleCrypto: utils.callCurry("s.",{s:crypto.subtle,cKeys}),
+					subtleCryptoCallDone(h) {
+						// console.log(h, handles[h], promises[h])
+						if (!(handles[h])) return false
+						if (!(promises[h])) return true // sync calls finish asap
+						return promises[h].done
+					},
+					subtleCryptoCall2Buf(funPtr) {
+						var h = env.callSubtleCrypto(funPtr,true)
+						if (h==-2) return 0
+						var buf = handles[h]
+						env.disownHandle(h)
+						return utils.buf2ptr(buf,false)
+					}
+				}
+				env.ctxFun2Str = utils.call2StrCurry(env.callCtxFun)
+				env.subtleCryptoCall2Str = utils.call2StrCurry(env.callSubtleCrypto)
+				var netPromises = Promise.all([
+					GradientWisp.init("wss://grad-wisp.onrender.com"),
+					(async function() {
+						return await WebAssembly.instantiate(await(await(fetch("/grOS.bin"))).arrayBuffer(),{env})
+					})(),
+					import("/mbedtls.js").then(async function(m){return m({wasmBinary:await(await(fetch("/mbedtls.bin"))).arrayBuffer()})}),
+					document.fonts.load("normal normal 16px \"Liberation Sans\""),document.fonts.load("italic normal 16px \"Liberation Sans\""),document.fonts.load("normal bold 16px \"Liberation Sans\""),document.fonts.load("italic bold 16px \"Liberation Sans\"")
+				])
+				var[,{instance},mbedtls]=(await netPromises)
+				console.log(mbedtls)
+				cnv.addEventListener("contextmenu",function(e){return![e.preventDefault()]})
+				window.addEventListener("resize",function(e){["width","height"].map(function(a){cnv[a]=Math.round(document.documentElement.getBoundingClientRect()[a]*window.devicePixelRatio)})}) // beat that zoomers
+				window.dispatchEvent(new Event("resize"))
+				instance.exports.__main__()
+			})(document.currentScript.replaceWith(document.createElement("canvas")))
+			// document.write("<h1 style=\"font-size: 50px;\">"+navigator.userAgent+"</h1>")
+		</script>
+	</body>
+</html>
