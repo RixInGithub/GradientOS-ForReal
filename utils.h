@@ -50,4 +50,9 @@ __attribute__((import_module("env"), import_name("perfTime"))) double perfTime(v
 __attribute__((import_module("env"), import_name("cnvProp"))) int obtainProp(int idx);
 __attribute__((import_module("env"), import_name("debug"))) void __debug__(c*, c*, c*); // debug() macro uses ts
 __attribute__((import_module("env"), import_name("renderMiscTxt"))) void renderMiscTxt(unsigned char[]); // type of |treeCredit|.
+// imports from mbedtls
+__attribute__((import_module("env"), import_name("_malloc"))) void*mbedMalloc(size_t);
+__attribute__((import_module("env"), import_name("_free"))) void mbedFree(void*);
+//__attribute__((import_module("env"), import_name("_calloc"))) void*calloc(size_t,size_t);
+//__attribute__((import_module("env"), import_name("_realloc"))) void*realloc(void*,size_t);
 #endif

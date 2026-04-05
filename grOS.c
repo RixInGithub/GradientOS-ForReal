@@ -244,7 +244,7 @@ bool testTlsSockReady = false;
 void testTls(void) {
 	if (!(tlsReady)) return;
 	if (!(testTlsSockReady)) {
-		testTlsSock = tlsOpen("google.com",443);
+		//testTlsSock = tlsOpen("google.com",443);
 		testTlsSockReady = true;
 	}
 }
