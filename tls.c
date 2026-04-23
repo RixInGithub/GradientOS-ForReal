@@ -1,17 +1,10 @@
 #include "tls.h"
 #include "utils.h"
 
-typedef struct {
-	c*serverKey;
-	bool sentHello;
-	bool recvHello;
-} TlsState;
-
 typedef struct TlsSock {
 	uint32_t idx;
 	uint32_t rawSock;
-	bool open;
-	TlsState*state;
+	uintptr_t ssl;
 	struct TlsSock*next;
 } TlsSock;
 
@@ -23,15 +16,6 @@ void tlsInit(void) {
 
 void tlsHandleSocks(void) {
 	return; // wip
-	if (socks==NULL) return; // don't bother
-	TlsSock*key = socks;
-	while (key!=NULL) {
-		if ((key->open)&&(key->state!=NULL)) {
-			//TlsState*s = key->state;
-			// ...
-		}
-		key = key->next;
-	}
 }
 
 /*
